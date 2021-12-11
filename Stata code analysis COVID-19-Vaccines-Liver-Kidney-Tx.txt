@@ -1,0 +1,1472 @@
+*-------------------------------------------------------------------------------
+**# start preparing and saving dataset for multivariate analyses in R
+*-------------------------------------------------------------------------------
+
+cd "C:\Documenti\Cravedi\COVID TX FS Analysis"
+use prepared_all_3_merged, clear
+
+
+preserve
+keep if Timepoint == 3
+keep ID RESPONDER ORGAN IND_ANY TAC_5PLUS MMFMYF Steroid NC-SARSCoVS1 IFN*
+drop NC PC  
+drop J 
+drop S1 S2
+drop HCoVHKU1S1 MERSCoVS1 SARSCoVS1
+drop IFN_C IFN_M IFN_N IFNIL2_C IFNIL2_M IFNIL2_N 
+drop if missing(SRBD) 
+order ID RESPONDER ORGAN IND_ANY TAC_5PLUS MMFMYF Steroid
+cap save mfa_ab, replace
+restore
+
+*-------------------------------------------------------------------------------
+**# end preparing and saving dataset for multivariate analyses in R 
+*-------------------------------------------------------------------------------
+
+
+
+*°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°
+********************************************************************************
+**# START TABLE 1
+********************************************************************************
+*°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°
+
+cd "C:\Documenti\Cravedi\COVID TX FS Analysis"
+use prepared_all_3_merged, clear
+
+list ID MMF mTORi Steroid if CNI_TYPE == 0 & Timepoint == 1
+
+
+
+**#---------------- start version with totals
+
+bysort ID (Timepoint): gen n = _n
+keep if n == 1
+
+list ID MMF mTORi Steroid if CNI_TYPE == 0 
+
+cap drop _Organ
+gen _Organ = Organ
+table (var) (Organ) , ///
+                stat (count _Organ) ///
+                stat(count AGE) stat(mean AGE) stat(sd AGE) ///
+                stat(fvfrequency GenderMF PreviousCOVID) stat(fvpercent GenderMF PreviousCOVID) ///
+                stat(count TIME_SINCE_TRANSPLANT BMI) stat(mean TIME_SINCE_TRANSPLANT BMI) stat(sd TIME_SINCE_TRANSPLANT BMI) ///
+                stat(fvfrequency livingdeceased Inductioni_0NOATG1Simulec Tacrolimus Cyclosporine mTORi MMFMYF Steroid ) ///
+                stat(fvpercent livingdeceased Inductioni_0NOATG1Simulec Tacrolimus Cyclosporine mTORi MMFMYF Steroid ) ///
+                stat(count TacrolimusLevel CyclosporinemgdieLiver mTORilevelattimeofIdosem DosageMMFMYF) ///
+                stat(mean TacrolimusLevel CyclosporinemgdieLiver mTORilevelattimeofIdosem DosageMMFMYF) ///
+                stat(sd TacrolimusLevel  CyclosporinemgdieLiver mTORilevelattimeofIdosem DosageMMFMYF) ///
+                stat(fvfrequency REJECTION KIDNEY_FAILURE_CAUSE LIVER_FAILURE_CAUSE CANCER AUTOIMMUNE_COMORB BASE_RESP) ///
+                stat(fvpercent REJECTION KIDNEY_FAILURE_CAUSE LIVER_FAILURE_CAUSE CANCER AUTOIMMUNE_COMORB BASE_RESP) ///
+                nformat(%3.0f count) ///
+                nformat(%3.1f mean sd) ///
+                nformat(%3.1f fvfrequency) ///
+                nformat(%3.1f fvpercent)
+
+collect remap Organ[.m]=total
+collect label dim total "All Patients"
+collect style header total, title(label) level(hide)
+
+// Change the label of Organ
+collect label dim Organ "SOT Type", modify
+               
+// don't show stat description along rows
+collect style header result, level(hide)
+collect preview
+
+// put frequency and percent in the same column as mean and sd, respectively
+collect recode result fvfrequency = mean fvpercent = sd
+collect layout (var) (total#result Organ[1 2]#result)
+
+// display percent (i.e. sd column) as %
+foreach x in GenderMF PreviousCOVID livingdeceased Inductioni_0NOATG1Simulec Tacrolimus Cyclosporine mTORi MMFMYF Steroid REJECTION KIDNEY_FAILURE_CAUSE LIVER_FAILURE_CAUSE CANCER AUTOIMMUNE_COMORB BASE_RESP {
+        collect style cell result[sd]#var[Organ `x'], sformat("%s%%")
+         }
+
+
+// display SD within brackets
+collect style cell result[sd]#var[AGE TIME_SINCE_TRANSPLANT BMI TacrolimusLevel CyclosporinemgdieLiver mTORilevelattimeofIdosem DosageMMFMYF], sformat("(%s)")
+collect preview
+
+
+// display frequency (i.e. mean column) as integer
+collect style cell result[mean]#var[GenderMF PreviousCOVID livingdeceased Inductioni_0NOATG1Simulec Tacrolimus Cyclosporine mTORi MMFMYF Steroid REJECTION KIDNEY_FAILURE_CAUSE LIVER_FAILURE_CAUSE CANCER AUTOIMMUNE_COMORB BASE_RESP], nformat(%4.0f)
+collect preview
+
+// calculate-save P values for categorical vars and tag vars
+
+foreach x in GenderMF PreviousCOVID livingdeceased Inductioni_0NOATG1Simulec Tacrolimus Cyclosporine mTORi MMFMYF Steroid REJECTION KIDNEY_FAILURE_CAUSE LIVER_FAILURE_CAUSE CANCER AUTOIMMUNE_COMORB BASE_RESP {
+  qui: collect r(p_exact), tag(var[`x']): tab Organ `x', exact
+         }
+
+// calculate-save P values for continuous vars and tag vars
+foreach x in AGE TIME_SINCE_TRANSPLANT BMI TacrolimusLevel  CyclosporinemgdieLiver mTORilevelattimeofIdosem DosageMMFMYF {
+	cap qui: collect r(p), tag(var[`x']): ranksum `x', by(Organ)
+	 }     
+        
+
+// attach columns for result levels p and p_exact (if calculated)
+collect layout (var) (total#result Organ[1 2]#result result[p p_exact])
+
+// recode var levels to get P value in the first row of categorical vars (if calculated)
+foreach x in  Inductioni_0NOATG1Simulec REJECTION CANCER AUTOIMMUNE_COMORB BASE_RESP {
+        collect recode var `x' = 0.`x', fortags(result[p_exact])
+         }
+		 
+foreach x in  GenderMF PreviousCOVID livingdeceased Tacrolimus Cyclosporine mTORi MMFMYF Steroid KIDNEY_FAILURE_CAUSE LIVER_FAILURE_CAUSE {
+        collect recode var `x' = 1.`x', fortags(result[p_exact])
+         }
+        
+// display P values with three digits
+collect style cell result[p p_exact], nformat(%4.3f)
+
+// label all p-values results as "P value" (if exact p values calculated)
+collect label levels result p "P value", modify
+collect label levels result p_exact "P value", modify
+collect style header result[p], level(label)
+collect style header result[p_exact], level(label)
+
+// display P value from the two type of stat test in a single column (if exact)
+collect recode result p_exact = p
+collect preview
+
+collect label levels var _Organ "Number", modify
+
+
+// set the layout
+collect label list Organ, all
+// do not draw vertical lines
+collect style cell cell_type, border(right, pattern(nil))
+
+// draw a lower margin line below the column header foreign
+collect style cell cell_type[column-header]#Organ[1 2], border(bottom, pattern(single))
+
+collect style row stack, nobinder
+collect preview
+
+// export tables
+* collect export Table1.docx, replace
+collect export Table1.html, replace
+collect export Table1.txt, replace
+collect export Table1.docx, replace
+
+
+*---------------- end version with totals
+
+
+
+*°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°
+********************************************************************************
+**# END TABLE 1
+********************************************************************************
+*°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°
+
+
+*°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°
+********************************************************************************
+**# START TABLE 1 (only those with Tac levels)
+********************************************************************************
+*°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°
+
+**#---------------- start version with totals
+cd "C:\Documenti\Cravedi\COVID TX FS Analysis"
+use prepared_all_3_merged, clear
+bysort ID (Timepoint): gen n = _n
+keep if n == 1
+drop if missing(TacrolimusLevel)
+drop if Tacrolimus == 1
+
+cap drop _Organ
+gen _Organ = Organ
+table (var) (Organ) , ///
+                stat (count _Organ) ///
+                stat(count AGE) stat(mean AGE) stat(sd AGE) ///
+                stat(fvfrequency GenderMF PreviousCOVID) stat(fvpercent GenderMF PreviousCOVID) ///
+                stat(count TIME_SINCE_TRANSPLANT BMI) stat(mean TIME_SINCE_TRANSPLANT BMI) stat(sd TIME_SINCE_TRANSPLANT BMI) ///
+                stat(fvfrequency livingdeceased Inductioni_0NOATG1Simulec Tacrolimus Cyclosporine mTORi MMFMYF Steroid ) ///
+                stat(fvpercent livingdeceased Inductioni_0NOATG1Simulec Tacrolimus Cyclosporine mTORi MMFMYF Steroid ) ///
+                stat(count TacrolimusLevel CyclosporinemgdieLiver mTORilevelattimeofIdosem DosageMMFMYF) ///
+                stat(mean TacrolimusLevel CyclosporinemgdieLiver mTORilevelattimeofIdosem DosageMMFMYF) ///
+                stat(sd TacrolimusLevel  CyclosporinemgdieLiver mTORilevelattimeofIdosem DosageMMFMYF) ///
+                stat(fvfrequency REJECTION KIDNEY_FAILURE_CAUSE LIVER_FAILURE_CAUSE CANCER AUTOIMMUNE_COMORB BASE_RESP) ///
+                stat(fvpercent REJECTION KIDNEY_FAILURE_CAUSE LIVER_FAILURE_CAUSE CANCER AUTOIMMUNE_COMORB BASE_RESP) ///
+                nformat(%3.0f count) ///
+                nformat(%3.1f mean sd) ///
+                nformat(%3.1f fvfrequency) ///
+                nformat(%3.1f fvpercent)
+
+collect remap Organ[.m]=total
+collect label dim total "All Patients"
+collect style header total, title(label) level(hide)
+
+// Change the label of Organ
+collect label dim Organ "SOT Type", modify
+               
+// don't show stat description along rows
+collect style header result, level(hide)
+collect preview
+
+// put frequency and percent in the same column as mean and sd, respectively
+collect recode result fvfrequency = mean fvpercent = sd
+collect layout (var) (total#result Organ[1 2]#result)
+
+// display percent (i.e. sd column) as %
+foreach x in GenderMF PreviousCOVID livingdeceased Inductioni_0NOATG1Simulec Tacrolimus Cyclosporine mTORi MMFMYF Steroid REJECTION KIDNEY_FAILURE_CAUSE LIVER_FAILURE_CAUSE CANCER AUTOIMMUNE_COMORB BASE_RESP {
+        collect style cell result[sd]#var[Organ `x'], sformat("%s%%")
+         }
+
+
+// display SD within brackets
+collect style cell result[sd]#var[AGE TIME_SINCE_TRANSPLANT BMI TacrolimusLevel CyclosporinemgdieLiver mTORilevelattimeofIdosem DosageMMFMYF], sformat("(%s)")
+collect preview
+
+
+// display frequency (i.e. mean column) as integer
+collect style cell result[mean]#var[GenderMF PreviousCOVID livingdeceased Inductioni_0NOATG1Simulec Tacrolimus Cyclosporine mTORi MMFMYF Steroid REJECTION KIDNEY_FAILURE_CAUSE LIVER_FAILURE_CAUSE CANCER AUTOIMMUNE_COMORB BASE_RESP], nformat(%4.0f)
+collect preview
+
+// calculate-save P values for categorical vars and tag vars
+
+foreach x in GenderMF PreviousCOVID livingdeceased Inductioni_0NOATG1Simulec Tacrolimus Cyclosporine mTORi MMFMYF Steroid REJECTION KIDNEY_FAILURE_CAUSE LIVER_FAILURE_CAUSE CANCER AUTOIMMUNE_COMORB BASE_RESP {
+  qui: collect r(p_exact), tag(var[`x']): tab Organ `x', exact
+         }
+
+// calculate-save P values for continuous vars and tag vars
+foreach x in AGE TIME_SINCE_TRANSPLANT BMI TacrolimusLevel  CyclosporinemgdieLiver mTORilevelattimeofIdosem DosageMMFMYF {
+	cap qui: collect r(p), tag(var[`x']): ranksum `x', by(Organ)
+	 }     
+        
+
+// attach columns for result levels p and p_exact (if calculated)
+collect layout (var) (total#result Organ[1 2]#result result[p p_exact])
+
+// recode var levels to get P value in the first row of categorical vars (if calculated)
+foreach x in  Inductioni_0NOATG1Simulec REJECTION CANCER AUTOIMMUNE_COMORB BASE_RESP {
+        collect recode var `x' = 0.`x', fortags(result[p_exact])
+         }
+		 
+foreach x in  GenderMF PreviousCOVID livingdeceased Tacrolimus Cyclosporine mTORi MMFMYF Steroid KIDNEY_FAILURE_CAUSE LIVER_FAILURE_CAUSE {
+        collect recode var `x' = 1.`x', fortags(result[p_exact])
+         }
+        
+// display P values with three digits
+collect style cell result[p p_exact], nformat(%4.3f)
+
+// label all p-values results as "P value" (if exact p values calculated)
+collect label levels result p "P value", modify
+collect label levels result p_exact "P value", modify
+collect style header result[p], level(label)
+collect style header result[p_exact], level(label)
+
+// display P value from the two type of stat test in a single column (if exact)
+collect recode result p_exact = p
+collect preview
+
+collect label levels var _Organ "Number", modify
+
+
+// set the layout
+collect label list Organ, all
+// do not draw vertical lines
+collect style cell cell_type, border(right, pattern(nil))
+
+// draw a lower margin line below the column header foreign
+collect style cell cell_type[column-header]#Organ[1 2], border(bottom, pattern(single))
+
+collect style row stack, nobinder
+collect preview
+
+// export tables
+collect export Table1_onlyTac.html, replace
+collect export Table1_onlyTac.txt, replace
+collect export Table1_onlyTac.docx, replace
+
+
+*---------------- end version with totals
+
+
+*°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°
+********************************************************************************
+**# END TABLE 1 (Only those with Tac levels)
+********************************************************************************
+*°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°
+
+*°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°
+********************************************************************************
+*-------------------------------------------------------------------------------
+**# Start Analysis RESPONDERS Liver vs Kidney (Tac Level available)
+*-------------------------------------------------------------------------------
+********************************************************************************
+*°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°
+
+cap log using "proportion_responders_tac_mmf_sterois_CRUDE_`c(current_date)'.smcl", replace
+
+cd "C:\Documenti\Cravedi\COVID TX FS Analysis"
+use prepared_all_3_merged, clear
+
+table (Timepoint) (Organ), statistic(fvpercent RESPONDER) nototal
+
+xtset id_paz Timepoint
+
+
+di _newline(5) in wh "°°°°°° CRUDE ANALYSES ON THE PROPORTION OF RESPONDERS °°°°°°°"
+qui xtgee RESPONDER i.Timepoint#i.Organ, family(binomial) corr(exc) vce(robust) 
+local n_pts =  e(N_g)
+local n_meas = e(N)
+local t_exp = e(N_g) * 3
+di "No of pts analyzed: `n_pts'; total measurements: `n_meas'" 
+
+
+di _newline(3) in ye "---> CRUDE PROPORTION RESPONDERS IN EACH ORGAN AT EACH TIMEPOINT"
+qui margins Organ#Timepoint, cformat(%3.2f) noatlegend saving(marg_resp_crude, replace)
+etable, margins cstat(_r_b, nformat(%3.2f) ) cstat(_r_ci, cidelimiter(,)  nformat(%3.2f)) mstat(_hide) 
+
+di _newline(3) in ye "---> CRUDE DIFFERENCES BETWEEN EACH ORGAN AT EACH TIMEPOINT"
+margins Organ@Timepoint,cformat(%3.2f) noatlegend
+
+local p10 = string(el(r(p),1,1), "%4.3f")
+local p20 = string(el(r(p),1,2), "%4.3f")
+local p30 = string(el(r(p),1,3), "%4.3f")
+local x = el(r(p),1,1)
+if `x' > 0.10 { 
+	local sp10 = " "
+	}
+	else if `x' < 0.10 & `x'>= 0.05 {
+	local sp10 = "*"
+	}
+	else if `x' < 0.05 & `x'>= 0.01 {
+	local sp10 = "**"
+	}
+	else if `x' < 0.01  {
+	local sp10 = "***"
+	}
+local x = el(r(p),1,2)
+if `x' > 0.10 { 
+	local sp20 = " "
+	}
+	else if `x' < 0.10 & `x'>= 0.05 {
+	local sp20 = "*"
+	}
+	else if `x' < 0.05 & `x'>= 0.01 {
+	local sp20 = "**"
+	}
+	else if `x' < 0.01  {
+	local sp20 = "***"
+	}
+local x = el(r(p),1,3)
+if `x' > 0.10 { 
+	local sp30 = " "
+	}
+	else if `x' < 0.10 & `x'>= 0.05 {
+	local sp30 = "*"
+	}
+	else if `x' < 0.05 & `x'>= 0.01 {
+	local sp30 = "**"
+	}
+	else if `x' < 0.01  {
+	local sp30 = "***"
+	}
+di "`sp10'"
+di "`sp20'"
+di "`sp30'"
+
+di _newline(3) in ye "---> CRUDE DIFFERENCES PROPORTION RESPONDERS WITHIN EACH ORGAN OF TIMEPOINT 2vs1 3vs1"
+margins r.Timepoint@Organ,   cformat(%3.2f) noatlegend nopval
+
+di _newline(3) in ye "---> CRUDE DIFFERENCES PROPORTION RESPONDERS BETWEEN ORGAN OF TIMEPOINT 2vs1 3vs1"
+margins r.Timepoint#r.Organ, cformat(%3.2f) noatlegend
+
+
+use marg_resp_crude, 
+
+gen x = .
+// _m1 = organ, _m2 = timepoint
+replace x = 1 if _m1 == 1 & _m2 == 1 //  Kidney Timepoint = 1 not Adj.
+replace x = 2 if _m1 == 2 & _m2 == 1  // Liver Timepoint = 1 not Adj.
+replace x = 4  if  _m1 == 1 & _m2 == 2  //  Kidney Timepoint = 2 not Adj.
+replace x = 5 if _m1 == 2 & _m2 == 2  // Liver Timepoint = 2 not Adj.
+replace x = 7 if _m1 == 1 & _m2 == 3  //  Kidney Timepoint = 2 not Adj.
+replace x = 8 if _m1 == 2 & _m2 == 3  // Liver Timepoint = 2 not Adj.
+gsort - x
+
+foreach var of varlist _margin _se_margin _ci_lb _ci_ub  {
+		replace `var' = `var' * 100
+		 }
+		
+
+
+qui summ _margin
+local gap = r(mean) / 10
+list _m1 _m2 x _ci_ub
+
+local x30 = max(_ci_ub[5],  _ci_ub[6]) + `gap'
+local x20 = max(_ci_ub[3],  _ci_ub[4]) + `gap'
+local x10 = max(_ci_ub[1], _ci_ub[2]) + `gap'
+
+
+local sx30 = max(_ci_ub[5],  _ci_ub[6]) + 2.0* `gap'
+local sx20 = max(_ci_ub[3],  _ci_ub[4]) + 2.0* `gap'
+local sx10 = max(_ci_ub[1], _ci_ub[2]) + 2.0* `gap'
+
+local y10u = x[1] + 0.5
+local y10l = x[2] - 0.5
+local y20u = x[3] + 0.5
+local y20l = x[4] - 0.5
+local y30u = x[5] + 0.5
+local y30l = x[6] - 0.5
+
+
+local y10m = 0.5*`y10u' + 0.5*`y10l'
+local y20m = 0.5*`y20u' + 0.5*`y20l'
+local y30m = 0.5*`y30u' + 0.5*`y30l'
+
+
+
+di `y10u' _skip(1) `x10' _skip(1) `y10l' _skip(1) `x10' _skip(1) "`sp10'"
+di `y20u' _skip(1) `x20' _skip(1) `y20l' _skip(1) `x20' _skip(1) "`sp20'"
+di `y20u' _skip(1) `x30' _skip(1) `y30l' _skip(1) `x30' _skip(1) "`sp30'"
+
+
+
+tw ///
+bar _margin x if _m1 == 1, horizontal barwidth(0.85)  bcolor(navy%50) || ///
+rcap _ci_lb _ci_ub x if _m1 == 1, horizontal  lcolor(navy) || ///
+bar _margin x if _m1 == 2, horizontal barwidth(0.85)  bcolor(maroon%50) || ///
+rcap _ci_lb _ci_ub x if _m1 == 2 , horizontal lcolor(maroon) || ///
+pci  `y10u'  `x10'  `y10l'  `x10', lcolor(navy) || ///
+pci  `y20u'  `x20'  `y20l'  `x20', lcolor(navy) || ///
+pci  `y30u'  `x30'  `y30l'  `x30', lcolor(navy) || ///
+, ///
+ylabel( 1.5 "T0" ///
+		4.5 "T1" ///
+		7.5 "T2", angle(horizontal) noticks labsize(*.8)) ///
+ysc(reverse) ///
+title("Antibody Responders Kidney vs Liver", box bexpand bmargin(12.5 0 0 0 0) size(*0.7)) ///
+xlab(0(10)100, grid forma(%3.0f) labsize(*0.9)) ///
+ysc(range(-1 10)) ///
+xsc(range(0 110)) ///
+ytitle("") ///
+xtitle("Percentage of Responders (%)", size(*0.9)) xsc(titlegap(3)) ///
+caption("No of pts analyzed: `n_pts'; total measurements: `n_meas'", size(*0.4)) ///
+legend(order(1 "Kidney" 3 "Liver") ring(0) pos(2)) scheme(s1mono) plotregion(margin(zero)) ///
+text(`y10m' `sx10'  "`sp30'", color(navy)) ///
+text(`y20m' `sx20'  "`sp20'", color(navy)) ///
+text(`y30m' `sx30'  "`sp10'", color(navy)) 
+cap graph export barplot_crude_ONLY_responders_V2.png, replace
+
+
+log close
+translate "proportion_responders_tac_mmf_sterois_crude_`c(current_date)'.smcl" "proportion_responders_tac_mmf_sterois_crude_`c(current_date)'.pdf", replace
+
+
+*°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°
+********************************************************************************
+*-------------------------------------------------------------------------------
+**# End Analysis RESPONDERS Liver vs Kidney (Tac Level available)
+*-------------------------------------------------------------------------------
+********************************************************************************
+*°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°
+
+*°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°
+********************************************************************************
+*-------------------------------------------------------------------------------
+**# Start Analysis SRBD Liver vs Kidney (Tac Level available)
+*-------------------------------------------------------------------------------
+********************************************************************************
+*°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°
+
+cap log using "SRBD_tac_mmf_sterois_crude_`c(current_date)'.smcl", replace
+
+cd "C:\Documenti\Cravedi\COVID TX FS Analysis"
+use prepared_all_3_merged, clear
+
+table (Timepoint) (ORGAN), statistic(mean SRBD) nototal
+
+xtset id_paz Timepoint
+di _newline(5) in wh "°°°°°° CRUDE ANALYSES ON THE MEAN SRBD °°°°°°°"
+xtgee SRBD i.Timepoint#i.Organ, family(gamma) link(log) corr(ind) robust
+local n_pts =  e(N_g)
+local n_meas = e(N)
+local t_exp = e(N_g) * 3
+di "No of pts analyzed: `n_pts'; total measurements: `n_meas'" 
+
+di _newline(3) in ye "---> CRUDE MEAN SRBD IN EACH ORGAN AT EACH TIMEPOINT"
+qui margins Organ#Timepoint, cformat(%3.0f) noatlegend saving(marg_resp_crude, replace)
+etable, margins cstat(_r_b, nformat(%3.0f) ) cstat(_r_ci, cidelimiter(,)  nformat(%3.0f)) mstat(_hide) 
+
+di _newline(3) in ye "---> CRUDE MEAN SRBD DIFFERENCES BETWEEN EACH ORGAN AT EACH TIMEPOINT"
+margins Organ@Timepoint,cformat(%3.0f) noatlegend
+
+local p10 = string(el(r(p),1,1), "%4.3f")
+local p20 = string(el(r(p),1,2), "%4.3f")
+local p30 = string(el(r(p),1,3), "%4.3f")
+local x = el(r(p),1,1)
+if `x' > 0.10 { 
+	local sp10 = " "
+	}
+	else if `x' < 0.10 & `x'>= 0.05 {
+	local sp10 = "*"
+	}
+	else if `x' < 0.05 & `x'>= 0.01 {
+	local sp10 = "**"
+	}
+	else if `x' < 0.01  {
+	local sp10 = "***"
+	}
+local x = el(r(p),1,2)
+if `x' > 0.10 { 
+	local sp20 = " "
+	}
+	else if `x' < 0.10 & `x'>= 0.05 {
+	local sp20 = "*"
+	}
+	else if `x' < 0.05 & `x'>= 0.01 {
+	local sp20 = "**"
+	}
+	else if `x' < 0.01  {
+	local sp20 = "***"
+	}
+local x = el(r(p),1,3)
+if `x' > 0.10 { 
+	local sp30 = " "
+	}
+	else if `x' < 0.10 & `x'>= 0.05 {
+	local sp30 = "*"
+	}
+	else if `x' < 0.05 & `x'>= 0.01 {
+	local sp30 = "**"
+	}
+	else if `x' < 0.01  {
+	local sp30 = "***"
+	}
+
+di _newline(3) in ye "---> CRUDE MEAN SRBD DIFFERENCES WITHIN EACH ORGAN OF TIMEPOINT 2vs1 3vs1"
+margins r.Timepoint@Organ,   cformat(%3.0f) noatlegend nopval
+
+di _newline(3) in ye "---> CRUDE MEAN SRBD DIFFERENCES BETWEEN ORGAN OF TIMEPOINT 2vs1 3vs1"
+margins r.Timepoint#r.Organ, cformat(%3.0f) noatlegend
+
+
+use marg_resp_crude, clear
+
+gen x = .
+replace x = 1 if _m1 == 1 & _m2 == 1  //  Kidney Timepoint = 1 not Adj.
+replace x = 2 if _m1 == 2 & _m2 == 1  // Liver Timepoint = 1 not Adj.
+replace x = 4  if  _m1 == 1 & _m2 == 2  //  Kidney Timepoint = 2 not Adj.
+replace x = 5 if _m1 == 2 & _m2 == 2  // Liver Timepoint = 2 not Adj.
+replace x = 7 if _m1 == 1 & _m2 == 3  //  Kidney Timepoint = 2 not Adj.
+replace x = 8 if _m1 == 2 & _m2 == 3  // Liver Timepoint = 2 not Adj.
+gsort - x
+
+foreach var of varlist _margin _ci_lb _ci_ub  {
+		replace `var' = 0  if `var' < 0 
+		replace `var' = .  if `var' > 30000
+		 }
+replace _margin = . if _ci_ub > 100000
+		
+
+
+
+qui summ _margin
+local gap = r(mean) / 10
+list _m1 _m2 x _margin _ci_lb _ci_ub
+
+local x30 = max(_ci_ub[5],  _ci_ub[6]) + `gap'
+local x20 = max(_ci_ub[3],  _ci_ub[4]) + `gap'
+local x10 = max(_ci_ub[1], _ci_ub[2]) + `gap'
+
+local sx30 = max(_ci_ub[5],  _ci_ub[6]) + 3.0* `gap'
+local sx20 = max(_ci_ub[3],  _ci_ub[4]) + 3.0* `gap'
+local sx10 = max(_ci_ub[1], _ci_ub[2]) + 3.0* `gap'
+
+local y10u = x[1] + 0.5
+local y10l = x[2] - 0.5
+local y20u = x[3] + 0.5
+local y20l = x[4] - 0.5
+local y30u = x[5] + 0.5
+local y30l = x[6] - 0.5
+
+local y10m = 0.5*`y10u' + 0.5*`y10l'
+local y20m = 0.5*`y20u' + 0.5*`y20l'
+local y30m = 0.5*`y30u' + 0.5*`y30l'
+
+
+di `y10u' _skip(1) `x10' _skip(1) `y10l' _skip(1) `x10' _skip(1) "`sp10'"
+di `y20u' _skip(1) `x20' _skip(1) `y20l' _skip(1) `x20' _skip(1) "`sp20'"
+di `y20u' _skip(1) `x30' _skip(1) `y30l' _skip(1) `x30' _skip(1) "`sp30'"
+
+
+
+tw ///
+bar _margin x if _m1 == 1, horizontal barwidth(0.85)  bcolor(navy%50) || ///
+rcap _ci_lb _ci_ub x if _m1 == 1, horizontal  lcolor(navy) || ///
+bar _margin x if _m1 == 2, horizontal barwidth(0.85)  bcolor(maroon%50) || ///
+rcap _ci_lb _ci_ub x if _m1 == 2 , horizontal lcolor(maroon) || ///
+pci  `y10u'  `x10'  `y10l'  `x10', lcolor(navy) || ///
+pci  `y20u'  `x20'  `y20l'  `x20', lcolor(navy) || ///
+pci  `y30u'  `x30'  `y30l'  `x30', lcolor(navy) || ///
+, ///
+ylabel( 1.5 "T0" ///
+		4.5 "T1" ///
+		7.5 "T2" ///
+		, angle(horizontal) noticks labsize(*.8)) ///
+ysc(reverse) ///
+title("SRBD Kidney vs Liver", box bexpand bmargin(12.5 0 0 0 0) size(*0.7)) ///
+xlab(0 5000(5000)25000, grid format(%3.0f) labsize(*0.9)) ///
+ysc(range(-1 10)) ///
+xsc(range(0 30000)) ///
+ytitle("") ///
+xtitle("MFI of SRBD", size(*0.9)) xsc(titlegap(3)) ///
+caption("No of pts analyzed: `n_pts'; total measurements: `n_meas'", size(*0.4)) ///
+legend(order(1 "Kidney" 3 "Liver") ring(0) pos(2)) scheme(s1mono) plotregion(margin(zero)) ///
+text(`y10m' `sx10'  "`sp30'", color(navy)) ///
+text(`y20m' `sx20'  "`sp20'", color(navy)) ///
+text(`y30m' `sx30'  "`sp10'", color(navy)) 
+
+cap graph export barplot_crude_ONLY_responders_SRBD_V2.png, replace
+
+
+log close
+translate "SRBD_tac_mmf_sterois_crude_`c(current_date)'.smcl" "SRBD_tac_mmf_sterois_crude_`c(current_date)'.pdf", replace
+
+
+*°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°
+********************************************************************************
+*-------------------------------------------------------------------------------
+**# End Analysis SRBD Liver vs Kidney (Tac Level available)
+*-------------------------------------------------------------------------------
+********************************************************************************
+*°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°
+
+
+*°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°
+********************************************************************************
+*-------------------------------------------------------------------------------
+**# Start Analysis IFN_S Liver vs Kidney (Tac Level available)
+*-------------------------------------------------------------------------------
+********************************************************************************
+*°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°
+
+cap log using "IFN_S_tac_mmf_sterois_crude_`c(current_date)'.smcl", replace
+
+
+cd "C:\Documenti\Cravedi\COVID TX FS Analysis"
+use prepared_all_3_merged, clear
+
+
+xtset id_paz Timepoint
+
+replace IFN_S = int(IFN_S)
+table (Timepoint) (Organ), statistic(mean IFN_S) nototal
+di _newline(5) in wh "°°°°°° CRUDE ANALYSES ON THE MEAN IFN_S °°°°°°°"
+
+qui zinb IFN_S i.Organ##i.Timepoint, inflate(i.Organ##i.Timepoint) vce(cluster id_paz )
+local n_pts =  e(N_clust)
+local n_meas = e(N)
+local t_exp = e(N_clust) * 3
+di "No of pts analyzed: `n_pts'; total measurements: `n_meas'" 
+
+
+di _newline(3) in ye "---> CRUDE MEAN SRBD IN EACH ORGAN AT EACH TIMEPOINT"
+qui margins Organ#Timepoint, cformat(%3.1f) noatlegend saving(marg_resp_crude, replace)
+etable, margins cstat(_r_b, nformat(%3.1f) ) cstat(_r_ci, cidelimiter(,)  nformat(%3.1f)) mstat(_hide) 
+
+di _newline(3) in ye "---> CRUDE MEAN SRBD DIFFERENCES BETWEEN EACH ORGAN AT EACH TIMEPOINT"
+margins Timepoint,  dydx(Organ)  cformat(%3.1f) noatlegend 
+
+local p10 = string(el(r(table), 4,4), "%4.3f")
+local p20 = string(el(r(table), 4,5), "%4.3f")
+local p30 = string(el(r(table), 4,6), "%4.3f")
+local x = el(r(table), 4,4)
+if `x' > 0.10 { 
+	local sp10 = " "
+	}
+	else if `x' < 0.10 & `x'>= 0.05 {
+	local sp10 = "*"
+	}
+	else if `x' < 0.05 & `x'>= 0.01 {
+	local sp10 = "**"
+	}
+	else if `x' < 0.01  {
+	local sp10 = "***"
+	}
+local x = el(r(table), 4,5)
+if `x' > 0.10 { 
+	local sp20 = " "
+	}
+	else if `x' < 0.10 & `x'>= 0.05 {
+	local sp20 = "*"
+	}
+	else if `x' < 0.05 & `x'>= 0.01 {
+	local sp20 = "**"
+	}
+	else if `x' < 0.01  {
+	local sp20 = "***"
+	}
+local x = el(r(table), 4,6)
+if `x' > 0.10 { 
+	local sp30 = " "
+	}
+	else if `x' < 0.10 & `x'>= 0.05 {
+	local sp30 = "*"
+	}
+	else if `x' < 0.05 & `x'>= 0.01 {
+	local sp30 = "**"
+	}
+	else if `x' < 0.01  {
+	local sp30 = "***"
+	}
+
+
+di _newline(3) in ye "---> CRUDE MEAN IFN-S DIFFERENCES WITHIN EACH ORGAN OF TIMEPOINT 2vs1 3vs1"
+margins r.Timepoint@Organ,   cformat(%3.1f) noatlegend nopval
+
+di _newline(3) in ye "---> CRUDE MEAN IFN-S DIFFERENCES BETWEEN ORGAN OF TIMEPOINT 2vs1 3vs1"
+margins r.Timepoint#r.Organ, cformat(%3.1f) noatlegend
+
+
+use marg_resp_crude, clear
+
+gen x = .
+// _m1 = organ, _m2 = timepoint
+replace x = 1 if _m1 == 1 & _m2 == 1 //  Kidney Timepoint = 1 not Adj.
+replace x = 2 if _m1 == 2 & _m2 == 1 // Liver Timepoint = 1 not Adj.
+replace x = 4  if  _m1 == 1 & _m2 == 2 //  Kidney Timepoint = 2 not Adj.
+replace x = 5 if _m1 == 2 & _m2 == 2 // Liver Timepoint = 2 not Adj.
+replace x = 7 if _m1 == 1 & _m2 == 3  //  Kidney Timepoint = 2 not Adj.
+replace x = 8 if _m1 == 2 & _m2 == 3 // Liver Timepoint = 2 not Adj.
+
+gsort - x
+
+foreach var of varlist _margin _ci_lb _ci_ub  {
+		replace `var' = 0  if `var' < 0 
+		 }
+
+
+
+qui summ _margin
+local gap = r(mean) / 10
+list _m1 _m2  x _ci_ub
+
+local x30 = max(_ci_ub[5],  _ci_ub[6]) + `gap'
+local x20 = max(_ci_ub[3],  _ci_ub[4]) + `gap'
+local x10 = max(_ci_ub[1], _ci_ub[2]) + `gap'
+
+local sx30 = max(_ci_ub[5],  _ci_ub[6]) + 2.0* `gap'
+local sx20 = max(_ci_ub[3],  _ci_ub[4]) + 2.0* `gap'
+local sx10 = max(_ci_ub[1], _ci_ub[2]) + 2.0* `gap'
+
+local y10u = x[1] + 0.5
+local y10l = x[2] - 0.5
+local y20u = x[3] + 0.5
+local y20l = x[4] - 0.5
+local y30u = x[5] + 0.5
+local y30l = x[6] - 0.5
+
+local y10m = 0.5*`y10u' + 0.5*`y10l'
+local y20m = 0.5*`y20u' + 0.5*`y20l'
+local y30m = 0.5*`y30u' + 0.5*`y30l'
+
+
+
+di `y10u' _skip(1) `x10' _skip(1) `y10l' _skip(1) `x10' _skip(1) "`sp10'"
+di `y20u' _skip(1) `x20' _skip(1) `y20l' _skip(1) `x20' _skip(1) "`sp20'"
+di `y20u' _skip(1) `x30' _skip(1) `y30l' _skip(1) `x30' _skip(1) "`sp30'"
+
+
+tw ///
+bar _margin x if _m1 == 1, horizontal barwidth(0.85)  bcolor(navy%50) || ///
+rcap _ci_lb _ci_ub x if _m1 == 1, horizontal  lcolor(navy) || ///
+bar _margin x if _m1 == 2, horizontal barwidth(0.85)  bcolor(maroon%50) || ///
+rcap _ci_lb _ci_ub x if _m1 == 2 , horizontal lcolor(maroon) || ///
+pci  `y10u'  `x10'  `y10l'  `x10', lcolor(navy) || ///
+pci  `y20u'  `x20'  `y20l'  `x20', lcolor(navy) || ///
+pci  `y30u'  `x30'  `y30l'  `x30', lcolor(navy) || ///
+, ///
+ylabel(1.5 "T0" ///
+		4.5 "T1" ///
+		7.5 "T2" ///
+		, angle(horizontal) noticks labsize(*.8)) ///
+ysc(reverse range(-1 10)) ///
+title("IFN-S Kidney vs Liver", box bexpand bmargin(12.5 0 0 0 0) size(*0.7)) ///
+xlab(0 10(10)50, grid forma(%3.0f) labsize(*0.9)) ///
+xsc(range(0 60)) ///
+ytitle("") ///
+xtitle("N Spots of IFN-S", size(*0.9)) xsc(titlegap(3)) ///
+caption("No of pts analyzed: `n_pts'; total measurements: `n_meas'", size(*0.4)) ///
+legend(order(1 "Kidney" 3 "Liver") ring(0) pos(2)) scheme(s1mono) plotregion(margin(zero)) ///
+text(`y10m' `sx10'  "`sp30'", color(navy)) ///
+text(`y20m' `sx20'  "`sp20'", color(navy)) ///
+text(`y30m' `sx30'  "`sp10'", color(navy)) 
+
+cap graph export barplot_crude_ONLY_responders_IFN_S_V2.png, replace
+
+*-------------------------------------------------------------------------------
+* Start Crude and Adjusted plot at T2 for IFN_S
+*-------------------------------------------------------------------------------
+
+cd "C:\Documenti\Cravedi\COVID TX FS Analysis"
+use prepared_all_3_merged, clear
+drop if missing(TacrolimusLevel) | Tacrolimus == 1
+
+foreach var of varlist IFN_S  {
+	di _newline(5) "------------------------>  `var'"
+	preserve
+	keep if Timepoint == 3
+	di _newline(3) in wh "--- CRUDE Analysis at T2 only of `var'--"
+	qui zinb `var' i.Organ, inflate(i.Organ) vce(robust)
+	margins Organ, cformat(%3.1f)  sformat(%3.2f) nopval
+	qui test 2.Organ = 0
+	di "P value = " %4.3f r(p)
+	di _newline(3) in wh "--- ADJUSTED Analysis at T2 only of `var'--"
+	// try to overcome convergence problems
+	qui zinb `var' i.Organ i.IND_ANY c.TacrolimusLevel i.Steroid i.MMF, inflate(_cons) vce(robust) 
+	matrix b = get(_b)
+	qui zinb `var' i.Organ i.IND_ANY c.TacrolimusLevel i.Steroid i.MMF, inflate(_cons i.Organ) vce(robust)  from(b)
+	matrix b1 = get(_b)
+	qui zinb `var' i.Organ i.IND_ANY c.TacrolimusLevel i.Steroid i.MMF, inflate(_cons i.Organ c.TacrolimusLevel) vce(robust) from(b1)
+	matrix b2 = get(_b)
+	constraint 1  _b[inflate:2.MMFMYF] = _b[inflate:2.Steroid]
+	constraint 2  _b[inflate:1.IND_ANY] = 0
+	qui zinb `var' i.Organ i.IND_ANY c.TacrolimusLevel i.Steroid i.MMF, inflate(_cons i.Organ i.IND_ANY c.TacrolimusLevel i.Steroid i.MMF) vce(robust) from(b2) constraint(1/2)
+	margins Organ, cformat(%3.1f)  sformat(%3.2f) nopval
+	qui test 2.Organ = 0
+	di "P value = " %4.3f r(p)
+	restore
+	 }
+	 
+discard
+postfile result model organ str21 YVAR n_pts b se ll ul pvalue using fileondisk4, replace
+foreach var in IFN_S {
+	foreach num of numlist 1 2 {
+	preserve
+	keep if Timepoint == 3
+	di _newline(3) in wh "--- CRUDE Analysis at T2 only of `var'--"
+	qui zinb `var' i.Organ, inflate(i.Organ) vce(robust)
+    local n_pts = e(N)
+	qui test 2.Organ = 0
+	local pvalue = r(p)
+	qui margins Organ, cformat(%3.1f)  sformat(%3.2f) nopval
+	matrix m  = r(table)
+	post result (`=1') (`=`num'') ("`var'") (`n_pts') (`=m[1,`num']') (`=m[2,`num']') (`=m[5,`num']') (`=m[6,`num']') (`=`pvalue'')
+	di _newline(3) in wh "--- ADJUTED Analysis at T2 only of `var'--"
+	// overcome convergence problems
+	qui zinb `var' i.Organ i.IND_ANY c.TacrolimusLevel i.Steroid i.MMF, inflate(_cons) vce(robust) 
+	matrix b = get(_b)
+	qui zinb `var' i.Organ i.IND_ANY c.TacrolimusLevel i.Steroid i.MMF, inflate(_cons i.Organ) vce(robust)  from(b)
+	matrix b1 = get(_b)
+	qui zinb `var' i.Organ i.IND_ANY c.TacrolimusLevel i.Steroid i.MMF, inflate(_cons i.Organ c.TacrolimusLevel) vce(robust) from(b1)
+	matrix b2 = get(_b)
+	constraint 1  _b[inflate:2.MMFMYF] = _b[inflate:2.Steroid]
+	constraint 2  _b[inflate:1.IND_ANY] = 0
+	qui zinb `var' i.Organ i.IND_ANY c.TacrolimusLevel i.Steroid i.MMF, inflate(i.Organ i.IND_ANY c.TacrolimusLevel i.Steroid i.MMF) vce(jacknife) from(b2) constraint(1/2)
+	local n_pts = e(N) 
+	qui test 2.Organ = 0
+	local pvalue = r(p)
+	qui margins Organ, cformat(%3.1f)  sformat(%3.2f) nopval
+	matrix m  = r(table)
+	post result (`=2') (`=`num'') ("`var'") (`n_pts') (`=m[1,`num']') (`=m[2,`num']')  (`=m[5,`num']') (`=m[6,`num']') (`=`pvalue'')
+	restore
+	    }
+	 }
+postclose result
+
+
+preserve
+cd "C:\Documenti\Cravedi\COVID TX FS Analysis"
+use fileondisk4, clear
+qui summ n_pts
+local pts_min = r(min)
+local pts_max = r(max)
+cap drop y
+encode YVAR, gen(y)
+cap drop x
+gen x = .
+replace x = 2 if organ == 2 & model == 1
+replace x = 1 if organ == 1 & model == 1
+replace x = 5 if organ == 2 & model == 2
+replace x = 4 if organ == 1 & model == 2
+gen str3 star = " "
+replace star = "*"   if pvalue <0.10
+replace star = "**"  if pvalue <0.05
+replace star = "***" if pvalue <0.01
+gen x2 = .
+replace x2 = 1.0 if (x == 1 | x == 2)
+replace x2 = 4.0 if (x == 4 | x == 5)
+gen ul2 = ul + 2.5
+sort YVAR x
+replace YVAR = "Anti-S IFNg Fluorospot"
+twoway ///
+  bar b x if organ == 1,  bcolor(navy%50)  || ///
+  bar b x if organ == 2,  bcolor(maroon%50)  || ///
+  rcap ll ul x if organ == 1, lcolor(navy)  || ///
+  rcap ll ul x if organ == 2, lcolor(maroon)  || ///
+  scatter ul2 x2 if organ == 2, msymbol(i) mlabel(star) mlabsize(*1.4) || ///
+  , ///
+  by(YVAR, cols(3) note("Range of pts analyzed: `pts_min' - `pts_max'", size(*0.6))  legend(position(3)) ) ///
+legend(cols(1) order(1 "Kidney" 2 "Liver")) ///
+ylabel(0(5)50, angle(horizontal) grid labsize(*.7)) ///
+ytitle("N Spots")  ///
+xlabel(1.5 "Crude" 4.5 "Adjusted", notick) ///
+xtitle("")  subtitle(, size(*1.0)) /// ///
+aspectratio(1) scheme(s1mono) 
+restore
+graph export bar_fileondisk4_V3.png, replace
+
+
+*-------------------------------------------------------------------------------
+* Start Crude and Adjusted plot at T2 for IFN_S
+*-------------------------------------------------------------------------------
+
+log close
+translate "IFN_S_tac_mmf_sterois_crude_`c(current_date)'.smcl" "IFN_S_tac_mmf_sterois_crude_`c(current_date)'.pdf", replace
+
+
+*°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°
+********************************************************************************
+*-------------------------------------------------------------------------------
+**# End Analysis IFN_S Liver vs Kidney (Tac Level available)
+*-------------------------------------------------------------------------------
+********************************************************************************
+*°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°
+
+
+*°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°
+********************************************************************************
+*-------------------------------------------------------------------------------
+**# Start Analysis IFN_S by RESPONDER Liver vs Kidney (Tac Level available)
+*-------------------------------------------------------------------------------
+********************************************************************************
+*°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°
+
+cap log using "IFN_S_by_RESPONDER_crude_`c(current_date)'.smcl", replace
+
+cd "C:\Documenti\Cravedi\COVID TX FS Analysis"
+use prepared_all_3_merged, clear
+
+
+replace IFN_S = int(IFN_S)
+table (Timepoint) (RESPONDER), statistic(mean IFN_S) nototal
+
+di _newline(5) in wh "°°°°°° CRUDE ANALYSES ON THE MEAN IFN-S °°°°°°°"
+
+qui zinb IFN_S  i.RESPONDER##i.Timepoint,  inflate(i.RESPONDER##i.Timepoint) vce(cluster id_paz )
+local n_pts =  e(N_clust)
+local n_meas = e(N)
+local t_exp = e(N_clust) * 3
+di "No of pts analyzed: `n_pts'; total measurements: `n_meas'" 
+
+di _newline(3) in ye "---> CRUDE MEAN IFN-S IN EACH RESPONDER CATEGORY AT EACH TIMEPOINT"
+margins RESPONDER#Timepoint, cformat(%3.1f) noatlegend saving(marg_resp_crude, replace)
+
+di _newline(3) in ye "---> CRUDE MEAN SRBD DIFFERENCES BETWEEN EACH RESPONDER CATEGORY AT EACH TIMEPOINT"
+margins Timepoint,  dydx(RESPONDER)  cformat(%3.1f) noatlegend 
+
+local p10 = string(el(r(table), 4,4), "%4.3f")
+local p20 = string(el(r(table), 4,5), "%4.3f")
+local p30 = string(el(r(table), 4,6), "%4.3f")
+local x = el(r(table), 4,4)
+if `x' > 0.10 { 
+	local sp10 = " "
+	}
+	else if `x' < 0.10 & `x'>= 0.05 {
+	local sp10 = "*"
+	}
+	else if `x' < 0.05 & `x'>= 0.01 {
+	local sp10 = "**"
+	}
+	else if `x' < 0.01  {
+	local sp10 = "***"
+	}
+local x = el(r(table), 4,5)
+if `x' > 0.10 { 
+	local sp20 = " "
+	}
+	else if `x' < 0.10 & `x'>= 0.05 {
+	local sp20 = "*"
+	}
+	else if `x' < 0.05 & `x'>= 0.01 {
+	local sp20 = "**"
+	}
+	else if `x' < 0.01  {
+	local sp20 = "***"
+	}
+local x = el(r(table), 4,6)
+if `x' > 0.10 { 
+	local sp30 = " "
+	}
+	else if `x' < 0.10 & `x'>= 0.05 {
+	local sp30 = "*"
+	}
+	else if `x' < 0.05 & `x'>= 0.01 {
+	local sp30 = "**"
+	}
+	else if `x' < 0.01  {
+	local sp30 = "***"
+	}
+
+di _newline(3) in ye "---> CRUDE DIFFERENCES IN MEAN IFN-S WITHIN EACH RESPONDER CATEGORY OF TIMEPOINT 2vs1 3vs1"
+margins r.Timepoint@RESPONDER,   cformat(%3.1f) noatlegend nopval
+
+di _newline(3) in ye "---> CRUDE DIFFERENCES IN MEAN IFN_S PROPORTION BETWEEN RESPONDER CATEGORY OF TIMEPOINT 2vs1 3vs1"
+margins r.Timepoint#r.RESPONDER, cformat(%3.1f) noatlegend
+
+
+use marg_resp_crude, clear
+gen x = .
+// _m1 = organ, _m2 = timepoint
+replace x = 1 if _m1 == 0 & _m2 == 1 //  NoREsp Timepoint = 1 not Adj.
+replace x = 2 if _m1 == 1 & _m2 == 1 // Resp Timepoint = 1 not Adj.
+replace x = 4 if  _m1 == 0 & _m2 == 2 //  NoResp Timepoint = 2 not Adj.
+replace x = 5 if _m1 == 1 & _m2 == 2  // Resp Timepoint = 2 not Adj.
+replace x = 7 if _m1 == 0 & _m2 == 3  //  NoResp Timepoint = 2 not Adj.
+replace x = 8 if _m1 == 1 & _m2 == 3  // Resp Timepoint = 2 not Adj.
+
+gsort - x
+
+foreach var of varlist _margin _ci_lb _ci_ub  {
+		replace `var' = 0  if `var' < 0 
+		 }
+
+
+qui summ _margin
+local gap = r(mean) / 10
+list _m1 _m2  x _ci_ub
+
+local x30 = max(_ci_ub[5],  _ci_ub[6]) + `gap'
+local x20 = max(_ci_ub[3],  _ci_ub[4]) + `gap'
+local x10 = max(_ci_ub[1], _ci_ub[2]) + `gap'
+
+local sx30 = max(_ci_ub[5],  _ci_ub[6]) + 2.0* `gap'
+local sx20 = max(_ci_ub[3],  _ci_ub[4]) + 2.0* `gap'
+local sx10 = max(_ci_ub[1], _ci_ub[2]) + 2.0* `gap'
+
+local y10u = x[1] + 0.5
+local y10l = x[2] - 0.5
+local y20u = x[3] + 0.5
+local y20l = x[4] - 0.5
+local y30u = x[5] + 0.5
+local y30l = x[6] - 0.5
+
+
+local y10m = 0.5*`y10u' + 0.5*`y10l'
+local y20m = 0.5*`y20u' + 0.5*`y20l'
+local y30m = 0.5*`y30u' + 0.5*`y30l'
+
+
+di `y10u' _skip(1) `x10' _skip(1) `y10l' _skip(1) `x10' 
+di `y20u' _skip(1) `x20' _skip(1) `y20l' _skip(1) `x20'
+di `y20u' _skip(1) `x30' _skip(1) `y30l' _skip(1) `x30'
+
+
+
+tw ///
+bar _margin x if _m1 == 0, horizontal barwidth(0.85)  bcolor(dkorange%50) || ///
+rcap _ci_lb _ci_ub x if _m1 == 0, horizontal  lcolor(dkorange) || ///
+bar _margin x if _m1 == 1, horizontal barwidth(0.85)  bcolor(forest_green%50) || ///
+rcap _ci_lb _ci_ub x if _m1 == 1 , horizontal lcolor(forest_green%50) || ///
+pci  `y10u'  `x10'  `y10l'  `x10', lcolor(navy) || ///
+pci  `y20u'  `x20'  `y20l'  `x20', lcolor(navy) || ///
+pci  `y30u'  `x30'  `y30l'  `x30', lcolor(navy) || ///
+, ///
+ylabel( 1.5 "T0"  ///
+		4.5 "T1"  ///
+	    7.5 "T2" ///
+		, angle(horizontal) noticks labsize(*.8)) ///
+ysc(reverse range(-1 10)) ///
+title("IFN-S Ab-Responder vs Ab-Non-Responder", box bexpand bmargin(12.5 0 0 0 0) size(*0.7)) ///
+xlab(0 10(10)50, grid forma(%3.0f) labsize(*0.9)) ///
+xsc(range(0 60)) ///
+ytitle("") ///
+xtitle("N Spots of IFN-S", size(*0.9)) xsc(titlegap(3)) ///
+caption("No of pts analyzed: `n_pts'; total measurements: `n_meas'", size(*0.4)) ///
+legend(order(1 "Resp:No" 3 "Resp.Yes") ring(0) pos(2)) scheme(s1mono) plotregion(margin(zero))  ///
+text(`y10m' `sx10'  "`sp30'", color(navy)) ///
+text(`y20m' `sx20'  "`sp20'", color(navy)) ///
+text(`y30m' `sx30'  "`sp10'", color(navy)) 
+
+cap graph export barplot__IFN_S_CRUDE_ONLY_V2.png, replace
+
+
+log close
+translate "IFN_S_by_RESPONDER_crude_`c(current_date)'.smcl" "IFN_S_by_RESPONDER_crude_`c(current_date)'.pdf", replace
+
+*°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°
+********************************************************************************
+*-------------------------------------------------------------------------------
+**# End Analysis IFN_S by RESPONDER Liver vs Kidney (Tac Level available)
+*-------------------------------------------------------------------------------
+********************************************************************************
+*°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°
+
+*°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°
+********************************************************************************
+*-------------------------------------------------------------------------------
+**# Start Additional Analyses on Other Antibodies
+*-------------------------------------------------------------------------------
+********************************************************************************
+*°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°
+
+********************************************************************************
+*-------------------------------------------------------------------------------
+**# START ANALYSES VARIANTS S1
+*-------------------------------------------------------------------------------
+********************************************************************************
+
+log using "OTHER_ANTIBODIES_`c(current_date)'.smcl", replace 
+cd "C:\Documenti\Cravedi\COVID TX FS Analysis"
+use prepared_all_3_merged, clear
+drop if missing(TacrolimusLevel) | Tacrolimus == 1
+
+foreach var of varlist AlphaS1 BetaS1 GammaS1 KappaS1 UKN501YS1  {
+	di _newline(5) "------------------------>  `var'"
+	preserve
+	keep if Timepoint == 3
+	di _newline(3) in wh "--- CRUDE Analysis at T2 only of `var'--"
+	qui glm  `var' i.Organ, family(gamma) link(log)
+	margins Organ, cformat(%3.0f)  sformat(%3.2f) nopval
+	qui test 2.Organ = 0
+	di "P value = " %4.3f r(p)
+	di _newline(3) in wh "--- ADJUSTED Analysis at T2 only of `var'--"
+	qui glm  `var' i.Organ i.IND_ANY c.TacrolimusLevel i.Steroid i.MMF, family(gamma) link(log) vce(robust)
+	margins Organ, cformat(%3.0f)  sformat(%3.2f) nopval
+	qui test 2.Organ = 0
+	di "P value = " %4.3f r(p)
+	restore
+	 }
+	 
+discard
+postfile result model organ str21 YVAR n_pts b se ll ul pvalue using fileondisk0, replace
+foreach var in  AlphaS1 BetaS1 GammaS1 KappaS1 UKN501YS1 {
+	foreach num of numlist 1 2 {
+	preserve
+	keep if Timepoint == 3
+	di _newline(3) in wh "--- CRUDE Analysis at T2 only of `var'--"
+	qui glm  `var' i.Organ, family(gamma) link(log) vce(robust)
+	local n_pts = e(N) 
+	qui test 2.Organ = 0
+	local pvalue = r(p)
+	qui margins Organ, cformat(%3.1f)  sformat(%3.2f) nopval
+	matrix m  = r(table)
+	post result (`=1') (`=`num'') ("`var'") (`n_pts') (`=m[1,`num']') (`=m[2,`num']') (`=m[5,`num']') (`=m[6,`num']') (`=`pvalue'')
+	di _newline(3) in wh "--- ADJUTED Analysis at T2 only of `var'--"
+	qui glm  `var' i.Organ i.IND_ANY c.TacrolimusLevel i.Steroid i.MMF, family(gamma) link(log) vce(robust)
+	local n_pts = e(N) 
+	qui test 2.Organ = 0
+	local pvalue = r(p)
+	qui margins Organ, cformat(%3.1f)  sformat(%3.2f) nopval
+	matrix m  = r(table)
+	post result (`=2') (`=`num'') ("`var'") (`n_pts') (`=m[1,`num']') (`=m[2,`num']')  (`=m[5,`num']') (`=m[6,`num']') (`=`pvalue'')
+	restore
+	    }
+	 }
+postclose result
+
+
+preserve
+cd "C:\Documenti\Cravedi\COVID TX FS Analysis"
+use fileondisk0, clear
+qui summ n_pts
+local pts_min = r(min)
+local pts_max = r(max)
+cap drop y
+encode YVAR, gen(y)
+cap drop x
+gen x = .
+replace x = 2 if organ == 2 & model == 1
+replace x = 1 if organ == 1 & model == 1
+replace x = 5 if organ == 2 & model == 2
+replace x = 4 if organ == 1 & model == 2
+gen str3 star = " "
+replace star = "*"   if pvalue <0.10
+replace star = "**"  if pvalue <0.05
+replace star = "***" if pvalue <0.01
+gen x2 = .
+replace x2 = 1.0 if (x == 1 | x == 2)
+replace x2 = 4.0 if (x == 4 | x == 5)
+gen ul2 = ul + 500
+sort YVAR x
+twoway ///
+  bar b x if organ == 1,  bcolor(navy%50)  || ///
+  bar b x if organ == 2,  bcolor(maroon%50)  || ///
+  rcap ll ul x if organ == 1, lcolor(navy)  || ///
+  rcap ll ul x if organ == 2, lcolor(maroon)  || ///
+  scatter ul2 x2 if organ == 2, msymbol(i) mlabel(star) || ///
+  , ///
+  by(YVAR, cols(3) note("Range of pts analyzed: `pts_min' - `pts_max'", size(*0.6))  legend(position(3)) ) ///
+legend(cols(1) order(1 "Kidney" 2 "Liver")) ///
+ylabel(0(5000)25000, angle(horizontal) grid labsize(*.7)) ///
+ytitle("MFI")  ///
+xlabel(1.5 "Crude" 4.5 "Adjusted", notick) ///
+xtitle("")  subtitle(, size(*0.6)) /// ///
+aspectratio(1) scheme(s1mono) 
+restore
+graph export bar_fileondisk0_V3.png, replace
+
+
+********************************************************************************
+*-------------------------------------------------------------------------------
+**# END ANALYSES VARIANTS S1
+*-------------------------------------------------------------------------------
+********************************************************************************
+	 
+
+	 
+	 
+********************************************************************************
+*-------------------------------------------------------------------------------
+**# START ANALYSES VARIANTS RBD
+*-------------------------------------------------------------------------------
+********************************************************************************
+
+cd "C:\Documenti\Cravedi\COVID TX FS Analysis"
+use prepared_all_3_merged, clear
+drop if missing(TacrolimusLevel) | Tacrolimus == 1
+
+
+
+foreach var of varlist SRBD AlphaRBD BetaRBD GammaRBD DeltaRBD ///
+			EpsilonRBD KappaRBD KappaRBD2 ZetaRBD  {
+	preserve
+	keep if Timepoint == 3
+	di _newline(3) in wh "--- CRUDE Analysis at T2 only of `var'--"
+	qui glm  `var' i.Organ, family(gamma) link(log)
+	margins Organ, cformat(%3.1f)  sformat(%3.2f) nopval
+	qui test 2.Organ = 0
+	di "P value = " %4.3f r(p)
+	di _newline(3) in wh "--- ADJUSTED Analysis at T2 only of `var'--"
+	qui glm  `var' i.Organ i.IND_ANY c.TacrolimusLevel i.Steroid i.MMF, family(gamma) link(log) vce(robust)
+	margins Organ, cformat(%3.1f)  sformat(%3.2f) nopval
+	qui test 2.Organ = 0
+	di "P value = " %4.3f r(p)
+	restore
+	 }
+	 
+
+	
+discard
+postfile result model organ str21 YVAR n_pts b se ll ul pvalue using fileondisk1, replace
+foreach var in  SRBD AlphaRBD BetaRBD GammaRBD DeltaRBD ///
+			EpsilonRBD KappaRBD KappaRBD2 ZetaRBD  {
+	foreach num of numlist 1 2 {
+	preserve
+	keep if Timepoint == 3
+	di _newline(3) in wh "--- CRUDE Analysis at T2 only of `var'--"
+	qui glm  `var' i.Organ, family(gamma) link(log) vce(robust)
+	local n_pts = e(N) 
+	qui test 2.Organ = 0
+	local pvalue = r(p)
+	qui margins Organ, cformat(%3.1f)  sformat(%3.2f) nopval
+	matrix m  = r(table)
+	post result (`=1') (`=`num'') ("`var'") (`n_pts') (`=m[1,`num']') (`=m[2,`num']') (`=m[5,`num']') (`=m[6,`num']') (`=`pvalue'')
+	di _newline(3) in wh "--- ADJUSTED Analysis at T2 only of `var'--"
+	qui glm  `var' i.Organ i.IND_ANY c.TacrolimusLevel i.Steroid i.MMF, family(gamma) link(log) vce(robust)
+	local n_pts = e(N) 
+	qui test 2.Organ = 0
+	local pvalue = r(p)
+	qui margins Organ, cformat(%3.1f)  sformat(%3.2f) nopval
+	matrix m  = r(table)
+	post result (`=2') (`=`num'') ("`var'") (`n_pts') (`=m[1,`num']') (`=m[2,`num']') (`=m[5,`num']') (`=m[6,`num']') (`=`pvalue'')
+	restore
+	    }
+	 }
+postclose result
+
+
+
+preserve
+cd "C:\Documenti\Cravedi\COVID TX FS Analysis"
+use fileondisk1, clear
+qui summ n_pts
+local pts_min = r(min)
+local pts_max = r(max)
+
+cap drop y
+encode YVAR, gen(y)
+cap drop x
+gen x = .
+replace x = 2 if organ == 2 & model == 1
+replace x = 1 if organ == 1 & model == 1
+replace x = 5 if organ == 2 & model == 2
+replace x = 4 if organ == 1 & model == 2
+gen str3 star = " "
+replace star = "*"   if pvalue <0.10
+replace star = "**"  if pvalue <0.05
+replace star = "***" if pvalue <0.01
+gen x2 = .
+replace x2 = 1.0 if (x == 1 | x == 2)
+replace x2 = 4.0 if (x == 4 | x == 5)
+gen ul2 = ul + 500
+replace YVAR = " SRBD" if YVAR == "SRBD"
+sort YVAR x
+
+twoway ///
+  bar b x if organ == 1,  bcolor(navy%50)  || ///
+  bar b x if organ == 2,  bcolor(maroon%50)  || ///
+  rcap ll ul x if organ == 1, lcolor(navy)  || ///
+  rcap ll ul x if organ == 2, lcolor(maroon)  || ///
+  scatter ul2 x2 if organ == 2, msymbol(i) mlabel(star) || ///
+  , ///
+  by(YVAR, cols(3) note("Range of pts analyzed: `pts_min' - `pts_max'", size(*0.6))  legend(position(3)) ) ///
+legend(cols(1) order(1 "Kidney" 2 "Liver")) ///
+ylabel(0(5000)25000, angle(horizontal) grid labsize(*.7)) ///
+ytitle("MFI")  ///
+xlabel(1.5 "Crude" 4.5 "Adjusted", notick) ///
+xtitle("") subtitle(, size(*0.6)) ///
+aspectratio(1) scheme(s1mono)
+restore
+graph export bar_fileondisk1_V3.png, replace
+
+
+********************************************************************************
+*-------------------------------------------------------------------------------
+**# END ANALYSES VARIANTS RBD
+*-------------------------------------------------------------------------------
+********************************************************************************
+
+
+********************************************************************************
+*-------------------------------------------------------------------------------
+**# START ANALYSES ON OTHER CORONAVIRUSES
+*-------------------------------------------------------------------------------
+********************************************************************************	 
+	 
+foreach var of varlist HCoV229ES1 HCoVHKU1S1 HCoVNL63SS1 ///
+			HCoVOC43S1 MERSCoVS1 SARSCoVS1  {
+	di _newline(5) "------------------------>  `var'"
+	
+	di _newline(5) in wh "°°°°°° CRUDE ANALYSES ON THE MEAN `var' °°°°°°°"
+	qui glm `var' i.Timepoint#i.Organ, family(gamma) vce(cluster id_paz)
+	di _newline(3) in ye "---> CRUDE MEAN `var' DIFFERENCES BETWEEN ORGAN OF TIMEPOINT 2vs1 3vs1"
+	qui margins r.Timepoint#r.Organ, cformat(%3.0f) noatlegend
+
+	di _newline(5) in wh "°°°°°° ADJUSTED ANALYSES ON MEAN `var' °°°°°°°"
+	qui glm `var' i.Timepoint#i.Organ i.IND_ANY c.TacrolimusLevel i.Steroid i.MMF, family(gamma) vce(cluster id_paz )
+	di _newline(3) in ye "---> ADJUSTED MEAN `var' DIFFERENCES BETWEEN ORGAN OF TIMEPOINT 2vs1 3vs1"
+	qui margins r.Timepoint#r.Organ, cformat(%3.0f) noatlegend
+	 }
+	 
+
+
+*-------------------------------------------------------------------------------
+**# Start Figure All Other Coronaviruses
+*-------------------------------------------------------------------------------
+
+
+cd "C:\Documenti\Cravedi\COVID TX FS Analysis"
+use prepared_all_3_merged, clear
+
+discard
+postfile result model organ timepoint str21 YVAR n_pts n_meas b se ll ul pvalue using fileondisk2, replace
+foreach var in  HCoV229ES1 HCoVHKU1S1 HCoVNL63SS1 ///
+			HCoVOC43S1 MERSCoVS1 SARSCoVS1  {
+	foreach num of numlist 1 2 {
+			foreach t of numlist 1 2 3 {
+	local colnum = `num' * `t'
+	di _newline(3) in wh "--- CRUDE Analysis over time only of `var'--"
+	xtset id_paz Timepoint
+	qui xtgee  `var'  i.Organ##i.Timepoint, family(gamma) link(log) corr(ind) vce(robust)
+	local n_pts =  e(N_g)
+	local n_meas = e(N)
+	qui margins Organ#Timepoint
+    matrix m = r(table)
+	qui margins r.Organ#r.Timepoint
+	matrix pvlist = r(p)
+	local pvalue = el(pvlist, 1, 3)
+	post result (`=1') (`=`num'') (`=`t'') ("`var'") (`n_pts')  (`n_meas') (`=m[1,`colnum']') (`=m[2,`colnum']') (`=m[5,`colnum']') (`=m[6,`colnum']') (`=`pvalue'')
+		    }
+	     }	 
+	  }
+postclose result
+
+preserve
+cd "C:\Documenti\Cravedi\COVID TX FS Analysis"
+use fileondisk2, clear
+replace ll = 0 if ll < 0
+cap drop x
+gen x = .
+replace x = 1 if model == 1 & timepoint == 1 & organ == 1
+replace x = 2 if model == 1 & timepoint == 1 & organ == 2
+replace x = 4 if model == 1 & timepoint == 2 & organ == 1
+replace x = 5 if model == 1 & timepoint == 2 & organ == 2
+replace x = 7 if model == 1 & timepoint == 3 & organ == 1
+replace x = 8 if model == 1 & timepoint == 3 & organ == 2
+
+
+cap label drop organ
+label define organ 1 "Kidney" 2 "Liver"
+label values organ organ
+cap label drop model
+label define model 1 "Crude" 2 "Adjusted"
+label values model model
+cap label drop timepoint
+label define timepoint 1 "T0" 2 "T1" 3 "T2"
+label values timepoint timepoint
+sort YVAR model
+order YVAR model timepoint organ
+save, replace
+restore
+
+
+		
+use fileondisk2.dta, clear
+qui summ n_pts
+local pts_min = r(min)
+local pts_max = r(max)
+qui summ n_meas 
+local meas_min = r(min)
+local meas_max = r(max)
+tw ///
+bar b x if organ == 1, horizontal barwidth(0.7)  bcolor(navy%50) || ///
+bar b x if organ == 2, horizontal barwidth(0.7)  bcolor(maroon%50) || ///
+rcap ll ul x if organ == 1, horizontal  lcolor(navy) msize(*0.5) || ///
+rcap ll ul x if organ == 2 , horizontal lcolor(maroon) msize(*0.5) || ///
+, ///
+ by(YVAR, cols(3) note("")  legend(position(3)) ///
+caption("Range of pts analyzed: `pts_min' - `pts_max'; range of total measurements: `meas_min'-`meas_min'", size(*0.4))) ///
+legend(cols(1) order(1 "Kidney" 2 "Liver")) ///
+xtitle("") ///
+aspectratio(1) ///
+ylabel( 1.5 "T0" ///
+		4.5 "T1" ///
+		7.5 "T2" ///
+		, angle(horizontal) noticks labsize(*.8)) ///
+ysc(reverse range(-0 9)) ///
+ytitle("") ///
+xlabel(, labsize(*0.7)) ///
+legend(off) scheme(s1mono) subtitle(, size(*0.6)) 
+
+graph export other_coronavirus_CRUDE_ONLY.png, replace
+
+
+*-------------------------------------------------------------------------------
+**# End Figure All Other Coronaviruses
+*-------------------------------------------------------------------------------
+
+********************************************************************************
+*-------------------------------------------------------------------------------
+**# END ANALYSES ON OTHER CORONAVIRUSES
+*-------------------------------------------------------------------------------
+********************************************************************************
+
+
+*°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°
+********************************************************************************
+*-------------------------------------------------------------------------------
+**# END Additional Analyses on Other Antibodies
+*-------------------------------------------------------------------------------
+********************************************************************************
+*°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°
+
+log close
+translate "OTHER_ANTIBODIES_`c(current_date)'.smcl" "OTHER_ANTIBODIES_`c(current_date)'.pdf", replace
+
+exit
+
+*°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°
+**# °°°°°°°°°°°°°°°°°°°°°°°EXIT°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°
+*°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°
+
+
+
