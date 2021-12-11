@@ -1,0 +1,53 @@
+rm( list=ls() )
+library(tidyverse)
+library(FactoMineR)
+library(factoextra)
+library(corrplot)
+library(haven)
+options(ggrepel.max.overlaps = Inf)
+
+setwd("C:/Documenti/Cravedi/COVID TX FS Analysis")
+mfa_ab <- read_dta("mfa_ab.dta")
+mfa_ab$ORGAN    <- factor(mfa_ab$ORGAN, levels = c(1,2), labels = c("Kidney", "Liver"))
+X <- read_dta("mfa_ab.dta")
+X <- column_to_rownames(X, var = "ID")
+X[c("RESPONDER", "ORGAN", "IND_ANY", "TAC_5PLUS", "MMFMYF", "Steroid")] <- NULL
+
+PCA(X, scale.unit = TRUE, ncp = 5, graph = FALSE)
+res.pca <- PCA(X, graph = FALSE)
+print(res.pca)
+eig.val <- get_eigenvalue(res.pca)
+fviz_eig(res.pca, addlabels = TRUE, ylim = c(0,100))
+var <- get_pca_var(res.pca)
+head(var$coord)
+head(var$cos2)
+head(var$contrib)
+fviz_pca_var(res.pca, col.var = "black")
+
+################# Start Correlation plot bewtweeen assays ############
+library(corrplot)
+corrplot(var$cos2, is.corr = TRUE, cl.ratio = 0.8)
+################# End Correlation plot bewtweeen assays ##############
+
+## Start Biplot with weighed patients points, ellipse for SOT and var (no lab) ##
+fviz_pca_biplot(res.pca,
+          geom.ind = "point",
+          pointshape = 21,
+          pointsize = 3,
+          fill.ind = mfa_ab$ORGAN,
+          col.ind = "black",
+          palette = c(rgb(72,108,140, maxColorValue = 255), rgb(144,53,59, maxColorValue = 255)),
+          addEllipse = TRUE, 
+          col.var = "contrib",
+          gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+          legend.title = list(fill = "SOT", color = "Contribution"),
+	  label = "none", 
+          title = NULL) 
+### End Biplot with weighed patients points, ellipse for SOT and var (no lab)  #####
+
+
+
+
+
+
+
