@@ -292,6 +292,72 @@ collect export Table1_onlyTac.docx, replace
 ********************************************************************************
 *°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°
 
+
+
+*°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°
+********************************************************************************
+**# START Calculating P values for FIGURE 2A
+********************************************************************************
+*°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°
+
+
+cap log using "S_Pvalues_Fugure2A_`c(current_date)'.smcl", replace
+cd "C:\Documenti\Cravedi\COVID TX FS Analysis"
+use S_prepared_all_3_merged, clear
+
+xtset id_paz Timepoint
+foreach var of varlist S1 SRBD S2  {
+di in ye _newline(3) "--->   " _skip(1) in wh "`var'" _skip(1) in ye "CRUDE CHANGE vs T0 IN EACH ORGAN AT EACH TIMEPOINT"
+qui xtgee  `var' i.Timepoint#i.Organ, family(gamma) link(log) corr(ind) robust
+qui margins r.Timepoint, over(Organ)
+etable, margins cstat(_r_b, nformat(%3.0f) ) cstat(_r_ci, cidelimiter(,)  nformat(%3.0f)) cstat(_r_p,  nformat(%4.3f))  mstat(_hide) 
+ }
+
+
+preserve
+gen    organ = Organ
+gen    timepoint1 = cond(Timepoint == 2, 1, 0)
+gen    timepoint2 = cond(Timepoint == 3, 1, 0)
+gen s1 = S1
+gen srbd = SRBD
+gen s2 = S2
+gen IDPAZ = id_paz
+qui gsem  ///
+	(timepoint1 -> s1, family(gamma) link(log)) ///
+    (timepoint1 -> srbd, family(gamma) link(log)) ///
+    (timepoint1 -> s2, family(gamma) link(log)) ///
+	(timepoint2 -> s1, family(gamma) link(log)) ///
+    (timepoint2 -> srbd, family(gamma) link(log)) ///
+    (timepoint2 -> s2, family(gamma) link(log)) ///
+	(P[IDPAZ] -> s1, family(gamma) link(log)) ///
+	(P[IDPAZ] -> srbd, family(gamma) link(log)) ///
+	(P[IDPAZ] -> s2, family(gamma) link(log)) ///
+	, ///
+	group(organ) ///
+    covstruct(_lexogenous, diagonal) latent(P ) nocapslatent
+
+/// multivariate test (S1 SRBD S2) in Kidney T1 vs T0
+test _b[s1:1.organ#c.timepoint1] + _b[srbd:1.organ#c.timepoint1] + _b[s2:1.organ#c.timepoint1] = 0
+/// multivariate test (S1 SRBD S2) in Kidney T2 vs T1
+test _b[s1:1.organ#c.timepoint2] + _b[srbd:1.organ#c.timepoint2] + _b[s2:1.organ#c.timepoint2] = 0	
+	
+/// multivariate test (S1 SRBD S2) in Liver T1 vs T0
+test _b[s1:2.organ#c.timepoint1] + _b[srbd:2.organ#c.timepoint1] + _b[s2:2.organ#c.timepoint1] = 0
+/// multivariate test (S1 SRBD S2) in Liver T2 vs T1
+test _b[s1:2.organ#c.timepoint2] + _b[srbd:2.organ#c.timepoint2] + _b[s2:2.organ#c.timepoint2] = 0
+
+restore
+
+log close
+cap translate "S_Pvalues_Fugure2A_`c(current_date)'.smcl" "S_Pvalues_Fugure2A_`c(current_date)'.pdf", replace
+
+*°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°
+********************************************************************************
+**# END Calculating P values for FIGURE 2A
+********************************************************************************
+*°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°
+
+
 *°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°
 ********************************************************************************
 *-------------------------------------------------------------------------------
