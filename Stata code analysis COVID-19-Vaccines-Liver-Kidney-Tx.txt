@@ -399,39 +399,39 @@ if `x' > 0.10 {
 	local sp10 = " "
 	}
 	else if `x' < 0.10 & `x'>= 0.05 {
-	local sp10 = "*"
+	local sp10 = "°"
 	}
 	else if `x' < 0.05 & `x'>= 0.01 {
-	local sp10 = "**"
+	local sp10 = "*"
 	}
 	else if `x' < 0.01  {
-	local sp10 = "***"
+	local sp10 = "**"
 	}
 local x = el(r(p),1,2)
 if `x' > 0.10 { 
 	local sp20 = " "
 	}
 	else if `x' < 0.10 & `x'>= 0.05 {
-	local sp20 = "*"
+	local sp20 = "°"
 	}
 	else if `x' < 0.05 & `x'>= 0.01 {
-	local sp20 = "**"
+	local sp20 = "*"
 	}
 	else if `x' < 0.01  {
-	local sp20 = "***"
+	local sp20 = "**"
 	}
 local x = el(r(p),1,3)
 if `x' > 0.10 { 
 	local sp30 = " "
 	}
 	else if `x' < 0.10 & `x'>= 0.05 {
-	local sp30 = "*"
+	local sp30 = "°"
 	}
 	else if `x' < 0.05 & `x'>= 0.01 {
-	local sp30 = "**"
+	local sp30 = "*"
 	}
 	else if `x' < 0.01  {
-	local sp30 = "***"
+	local sp30 = "**"
 	}
 di "`sp10'"
 di "`sp20'"
@@ -572,39 +572,39 @@ if `x' > 0.10 {
 	local sp10 = " "
 	}
 	else if `x' < 0.10 & `x'>= 0.05 {
-	local sp10 = "*"
+	local sp10 = "°"
 	}
 	else if `x' < 0.05 & `x'>= 0.01 {
-	local sp10 = "**"
+	local sp10 = "*"
 	}
 	else if `x' < 0.01  {
-	local sp10 = "***"
+	local sp10 = "**"
 	}
 local x = el(r(p),1,2)
 if `x' > 0.10 { 
 	local sp20 = " "
 	}
 	else if `x' < 0.10 & `x'>= 0.05 {
-	local sp20 = "*"
+	local sp20 = "°"
 	}
 	else if `x' < 0.05 & `x'>= 0.01 {
-	local sp20 = "**"
+	local sp20 = "*"
 	}
 	else if `x' < 0.01  {
-	local sp20 = "***"
+	local sp20 = "**"
 	}
 local x = el(r(p),1,3)
 if `x' > 0.10 { 
 	local sp30 = " "
 	}
 	else if `x' < 0.10 & `x'>= 0.05 {
-	local sp30 = "*"
+	local sp30 = "°"
 	}
 	else if `x' < 0.05 & `x'>= 0.01 {
-	local sp30 = "**"
+	local sp30 = "*"
 	}
 	else if `x' < 0.01  {
-	local sp30 = "***"
+	local sp30 = "**"
 	}
 
 di _newline(3) in ye "---> CRUDE MEAN SRBD DIFFERENCES WITHIN EACH ORGAN OF TIMEPOINT 2vs1 3vs1"
@@ -749,39 +749,39 @@ if `x' > 0.10 {
 	local sp10 = " "
 	}
 	else if `x' < 0.10 & `x'>= 0.05 {
-	local sp10 = "*"
+	local sp10 = "°"
 	}
 	else if `x' < 0.05 & `x'>= 0.01 {
-	local sp10 = "**"
+	local sp10 = "*"
 	}
 	else if `x' < 0.01  {
-	local sp10 = "***"
+	local sp10 = "**"
 	}
 local x = el(r(table), 4,5)
 if `x' > 0.10 { 
 	local sp20 = " "
 	}
 	else if `x' < 0.10 & `x'>= 0.05 {
-	local sp20 = "*"
+	local sp20 = "°"
 	}
 	else if `x' < 0.05 & `x'>= 0.01 {
-	local sp20 = "**"
+	local sp20 = "*"
 	}
 	else if `x' < 0.01  {
-	local sp20 = "***"
+	local sp20 = "**"
 	}
 local x = el(r(table), 4,6)
 if `x' > 0.10 { 
 	local sp30 = " "
 	}
 	else if `x' < 0.10 & `x'>= 0.05 {
-	local sp30 = "*"
+	local sp30 = "°"
 	}
 	else if `x' < 0.05 & `x'>= 0.01 {
-	local sp30 = "**"
+	local sp30 = "*"
 	}
 	else if `x' < 0.01  {
-	local sp30 = "***"
+	local sp30 = "**"
 	}
 
 
@@ -954,9 +954,9 @@ replace x = 1 if organ == 1 & model == 1
 replace x = 5 if organ == 2 & model == 2
 replace x = 4 if organ == 1 & model == 2
 gen str3 star = " "
-replace star = "*"   if pvalue <0.10
-replace star = "**"  if pvalue <0.05
-replace star = "***" if pvalue <0.01
+replace star = "°"   if pvalue <0.10
+replace star = "*"  if pvalue <0.05
+replace star = "**" if pvalue <0.01
 gen x2 = .
 replace x2 = 1.0 if (x == 1 | x == 2)
 replace x2 = 4.0 if (x == 4 | x == 5)
@@ -1037,36 +1037,36 @@ if `x' > 0.10 {
 	local sp10 = " "
 	}
 	else if `x' < 0.10 & `x'>= 0.05 {
-	local sp10 = "*"
+	local sp10 = "°"
 	}
 	else if `x' < 0.05 & `x'>= 0.01 {
-	local sp10 = "**"
+	local sp10 = "*"
 	}
 	else if `x' < 0.01  {
-	local sp10 = "***"
+	local sp10 = "**"
 	}
 local x = el(r(table), 4,5)
 if `x' > 0.10 { 
 	local sp20 = " "
 	}
 	else if `x' < 0.10 & `x'>= 0.05 {
-	local sp20 = "*"
+	local sp20 = "°"
 	}
 	else if `x' < 0.05 & `x'>= 0.01 {
-	local sp20 = "**"
+	local sp20 = "*"
 	}
 	else if `x' < 0.01  {
-	local sp20 = "***"
+	local sp20 = "**"
 	}
 local x = el(r(table), 4,6)
 if `x' > 0.10 { 
 	local sp30 = " "
 	}
 	else if `x' < 0.10 & `x'>= 0.05 {
-	local sp30 = "*"
+	local sp30 = "°"
 	}
 	else if `x' < 0.05 & `x'>= 0.01 {
-	local sp30 = "**"
+	local sp30 = "*"
 	}
 	else if `x' < 0.01  {
 	local sp30 = "***"
@@ -1245,9 +1245,9 @@ replace x = 1 if organ == 1 & model == 1
 replace x = 5 if organ == 2 & model == 2
 replace x = 4 if organ == 1 & model == 2
 gen str3 star = " "
-replace star = "*"   if pvalue <0.10
-replace star = "**"  if pvalue <0.05
-replace star = "***" if pvalue <0.01
+replace star = "°"   if pvalue <0.10
+replace star = "*"  if pvalue <0.05
+replace star = "**" if pvalue <0.01
 gen x2 = .
 replace x2 = 1.0 if (x == 1 | x == 2)
 replace x2 = 4.0 if (x == 4 | x == 5)
@@ -1357,9 +1357,9 @@ replace x = 1 if organ == 1 & model == 1
 replace x = 5 if organ == 2 & model == 2
 replace x = 4 if organ == 1 & model == 2
 gen str3 star = " "
-replace star = "*"   if pvalue <0.10
-replace star = "**"  if pvalue <0.05
-replace star = "***" if pvalue <0.01
+replace star = "°"   if pvalue <0.10
+replace star = "*"  if pvalue <0.05
+replace star = "**" if pvalue <0.01
 gen x2 = .
 replace x2 = 1.0 if (x == 1 | x == 2)
 replace x2 = 4.0 if (x == 4 | x == 5)
